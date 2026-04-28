@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>FlightLog</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07090e;--surface:rgba(255,255,255,0.05);--border:rgba(255,255,255,0.1);
+  --text:#dce4f0;--muted:rgba(255,255,255,0.4);--accent:#f97316;
+  --accent2:#3b82f6;--danger:rgba(239,68,68,0.7);
+}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+/* HEADER */
+#hdr{padding:48px 16px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0}
+.brand{font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:var(--accent);letter-spacing:4px;display:flex;align-items:center;gap:8px}
+.brand-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}
+#stats{display:flex;gap:16px;margin-top:8px;font-size:11px;color:var(--muted);font-family:'Space Mono',monospace}
+.stat-chip{background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);border-radius:20px;padding:3px 10px;color:var(--accent)}
+/* CONTENT */
+#content{flex:1;overflow-y:auto;overflow-x:hidden}
+#content::-webkit-scrollbar{width:4px}
+#content::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px}
+/* NAV */
+#nav{display:flex;border-top:1px solid var(--border);background:var(--bg);flex-shrink:0;padding-bottom:env(safe-area-inset-bottom)}
+.ntab{flex:1;padding:10px 4px;border:none;background:none;color:var(--muted);font-size:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-family:'Outfit',sans-serif;font-weight:600;letter-spacing:1px;text-transform:uppercase;transition:color .2s}
+.ntab.active{color:var(--accent)}
+.ntab.active .ni-wrap{background:rgba(249,115,22,0.15)}
+.ni-wrap{width:36px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.ni{font-size:18px}
+/* PAGE */
+.page{display:none;padding:0}
+.page.active{display:block}
+/* CARDS */
+.card{background:var(--surface);border-radius:14px;padding:16px;margin:12px 12px 0;border:1px solid var(--border);transition:border-color .2s}
+.card:last-child{margin-bottom:12px}
+/* INPUTS */
+.field{margin-bottom:12px}
+.field label{display:block;font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;font-weight:600}
+input,select,.fake-input{background:rgba(255,255,255,0.07);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:12px 14px;font-size:14px;width:100%;font-family:'Outfit',sans-serif;transition:border-color .2s;-webkit-appearance:none}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+select option{background:#1a1f2e;color:var(--text)}
+.btn{background:var(--accent);color:white;border:none;border-radius:10px;padding:14px;font-size:14px;width:100%;margin-top:6px;cursor:pointer;font-family:'Outfit',sans-serif;font-weight:700;letter-spacing:1px;transition:opacity .2s,transform .1s}
+.btn:active{transform:scale(0.98);opacity:0.9}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-blue{background:var(--accent2)}
+.btn-sm{padding:6px 12px;font-size:11px;width:auto;margin-top:0;border-radius:8px}
+/* MAP */
+#map-wrap{position:relative;margin:12px;border-radius:14px;overflow:hidden;border:1px solid var(--border);background:#0b1120}
+#world-map{width:100%;display:block}
+#arc-layer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+.map-legend{position:absolute;bottom:8px;left:8px;font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;background:rgba(7,9,14,0.8);padding:6px 10px;border-radius:8px}
+/* AIRPORT SEARCH */
+.airport-search-wrap{position:relative}
+#apt-dropdown{position:absolute;top:100%;left:0;right:0;background:#131825;border:1px solid var(--border);border-radius:10px;z-index:100;max-height:200px;overflow-y:auto;display:none;margin-top:4px}
+#apt-dropdown.open{display:block}
+.apt-item{padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);transition:background .15s}
+.apt-item:last-child{border-bottom:none}
+.apt-item:hover{background:rgba(249,115,22,0.1)}
+.apt-code{font-family:'Space Mono',monospace;color:var(--accent);font-size:12px;font-weight:700}
+.apt-name{color:var(--muted);font-size:11px;margin-top:2px}
+/* TRIP CARD */
+.trip-card{background:var(--surface);border-radius:14px;padding:16px;margin:12px 12px 0;border:1px solid var(--border)}
+.trip-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.trip-name{font-weight:700;font-size:16px}
+.trip-actions{display:flex;gap:6px}
+.leg-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-top:6px;padding:8px 10px;background:rgba(0,0,0,0.2);border-radius:8px}
+.leg-route{font-family:'Space Mono',monospace;font-size:12px;color:var(--text)}
+.leg-fn{color:var(--accent);font-family:'Space Mono',monospace;font-size:11px}
+.expense-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 10px;background:rgba(0,0,0,0.2);border-radius:8px;margin-top:4px}
+.expense-cat{color:var(--muted)}
+.expense-amt{font-family:'Space Mono',monospace;color:#10b981;font-weight:700}
+.trip-total{text-align:right;font-family:'Space Mono',monospace;font-size:12px;color:var(--accent);margin-top:8px}
+/* SECTION TITLE */
+.sec-title{font-size:11px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;padding:16px 16px 6px;font-weight:600}
+/* TABS inside card */
+.inner-tabs{display:flex;gap:6px;margin-bottom:16px}
+.itab{flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:'Outfit',sans-serif;font-weight:600;transition:all .2s}
+.itab.active{background:rgba(249,115,22,0.15);border-color:rgba(249,115,22,0.4);color:var(--accent)}
+.itab-panel{display:none}
+.itab-panel.active{display:block}
+/* EMPTY STATE */
+.empty{text-align:center;padding:50px 20px;color:var(--muted);font-size:14px;line-height:2}
+.empty-icon{font-size:40px;display:block;margin-bottom:12px;opacity:0.4}
+/* EXPENSE CATEGORIES */
+.cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.cat-btn{padding:10px 6px;border:1px solid var(--border);border-radius:10px;background:none;color:var(--muted);font-size:11px;cursor:pointer;text-align:center;transition:all .2s;font-family:'Outfit',sans-serif}
+.cat-btn.selected{border-color:var(--accent);background:rgba(249,115,22,0.15);color:var(--accent)}
+.cat-icon{display:block;font-size:18px;margin-bottom:4px}
+/* BADGES */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-family:'Space Mono',monospace;font-weight:700}
+.badge-orange{background:rgba(249,115,22,0.15);color:var(--accent)}
+.badge-blue{background:rgba(59,130,246,0.15);color:var(--accent2)}
+/* TOAST */
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:rgba(16,185,129,0.9);color:white;padding:10px 20px;border-radius:30px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;pointer-events:none;z-index:999;white-space:nowrap}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* ROW */
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <div class="brand"><span class="brand-dot"></span>✈ FLIGHT LOG</div>
+  <div id="stats"></div>
+</div>
+
+<div id="content">
+  <!-- MAP PAGE -->
+  <div class="page active" id="pg-map">
+    <div id="map-wrap">
+      <canvas id="world-map" height="220"></canvas>
+      <canvas id="arc-layer"></canvas>
+      <div class="map-legend" id="map-legend"></div>
+    </div>
+    <div id="trips-map-list"></div>
+  </div>
+
+  <!-- TRIPS PAGE -->
+
+  <div class="page" id="pg-trips">
+    <div id="trips-list"></div>
+  </div>
+
+  <!-- ADD PAGE -->
+
+  <div class="page" id="pg-add">
+    <div class="card">
+      <div class="inner-tabs">
+        <button class="itab active" onclick="switchInner('flight')">✈ 新增航班</button>
+        <button class="itab" onclick="switchInner('expense')">💰 新增開支</button>
+      </div>
+
+```
+  <!-- FLIGHT TAB -->
+  <div class="itab-panel active" id="panel-flight">
+    <div class="field">
+      <label>行程名稱</label>
+      <input type="text" id="inp-name" placeholder="例：東京之旅 2025">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>出發機場</label>
+        <div class="airport-search-wrap">
+          <input type="text" id="inp-from" placeholder="搜尋 TPE…" autocomplete="off" oninput="searchApt(this,'from-drop')" onfocus="searchApt(this,'from-drop')">
+          <div id="from-drop" class="apt-dropdown" style="position:absolute;top:100%;left:0;right:0;background:#131825;border:1px solid var(--border);border-radius:10px;z-index:200;max-height:180px;overflow-y:auto;display:none;margin-top:4px"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>目的機場</label>
+        <div class="airport-search-wrap">
+          <input type="text" id="inp-to" placeholder="搜尋 NRT…" autocomplete="off" oninput="searchApt(this,'to-drop')" onfocus="searchApt(this,'to-drop')">
+          <div id="to-drop" class="apt-dropdown" style="position:absolute;top:100%;left:0;right:0;background:#131825;border:1px solid var(--border);border-radius:10px;z-index:200;max-height:180px;overflow-y:auto;display:none;margin-top:4px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>日期</label>
+        <input type="date" id="inp-date">
+      </div>
+      <div class="field">
+        <label>班機號碼</label>
+        <input type="text" id="inp-fn" placeholder="BR255">
+      </div>
+    </div>
+    <div class="field">
+      <label>艙等</label>
+      <select id="inp-class">
+        <option value="Economy">經濟艙</option>
+        <option value="Premium Economy">豪華經濟艙</option>
+        <option value="Business">商務艙</option>
+        <option value="First">頭等艙</option>
+      </select>
+    </div>
+    <button class="btn" id="btn-save">儲存航班 ✈</button>
+  </div>
+
+  <!-- EXPENSE TAB -->
+  <div class="itab-panel" id="panel-expense">
+    <div class="field">
+      <label>選擇行程</label>
+      <select id="exp-trip"></select>
+    </div>
+    <div class="field">
+      <label>類別</label>
+      <div class="cat-grid" id="cat-grid">
+        <button class="cat-btn selected" data-cat="機票"><span class="cat-icon">✈️</span>機票</button>
+        <button class="cat-btn" data-cat="住宿"><span class="cat-icon">🏨</span>住宿</button>
+        <button class="cat-btn" data-cat="餐飲"><span class="cat-icon">🍜</span>餐飲</button>
+        <button class="cat-btn" data-cat="交通"><span class="cat-icon">🚌</span>交通</button>
+        <button class="cat-btn" data-cat="購物"><span class="cat-icon">🛍️</span>購物</button>
+        <button class="cat-btn" data-cat="其他"><span class="cat-icon">📝</span>其他</button>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>金額</label>
+        <input type="number" id="exp-amount" placeholder="0">
+      </div>
+      <div class="field">
+        <label>貨幣</label>
+        <select id="exp-currency">
+          <option>TWD</option><option>JPY</option><option>USD</option>
+          <option>EUR</option><option>GBP</option><option>KRW</option>
+          <option>HKD</option><option>SGD</option><option>THB</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>備註</label>
+      <input type="text" id="exp-note" placeholder="例：ANA 機票">
+    </div>
+    <button class="btn btn-blue" id="btn-exp">記錄開支 💰</button>
+  </div>
+</div>
+```
+
+  </div>
+</div>
+
+<div id="nav">
+  <button class="ntab active" id="nav-map"><div class="ni-wrap"><span class="ni">🗺️</span></div><span>地圖</span></button>
+  <button class="ntab" id="nav-trips"><div class="ni-wrap"><span class="ni">📋</span></div><span>行程</span></button>
+  <button class="ntab" id="nav-add"><div class="ni-wrap"><span class="ni">＋</span></div><span>新增</span></button>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+// ─── AIRPORT DATABASE ──────────────────────────────────────────────────────
+var AIRPORTS = [
+  {code:"TPE",name:"台灣桃園國際機場",city:"台北",lat:25.0777,lng:121.2326},
+  {code:"TSA",name:"台北松山機場",city:"台北",lat:25.0694,lng:121.5522},
+  {code:"KHH",name:"高雄國際機場",city:"高雄",lat:22.5771,lng:120.3499},
+  {code:"NRT",name:"成田國際機場",city:"東京",lat:35.7720,lng:140.3929},
+  {code:"HND",name:"羽田機場",city:"東京",lat:35.5494,lng:139.7798},
+  {code:"KIX",name:"關西國際機場",city:"大阪",lat:34.4347,lng:135.2440},
+  {code:"CTS",name:"新千歲機場",city:"札幌",lat:42.7752,lng:141.6922},
+  {code:"OKA",name:"那霸機場",city:"沖繩",lat:26.1958,lng:127.6459},
+  {code:"ICN",name:"仁川國際機場",city:"首爾",lat:37.4691,lng:126.4505},
+  {code:"GMP",name:"金浦國際機場",city:"首爾",lat:37.5586,lng:126.7944},
+  {code:"HKG",name:"香港國際機場",city:"香港",lat:22.3080,lng:113.9185},
+  {code:"MFM",name:"澳門國際機場",city:"澳門",lat:22.1496,lng:113.5916},
+  {code:"PVG",name:"浦東國際機場",city:"上海",lat:31.1443,lng:121.8083},
+  {code:"SHA",name:"虹橋國際機場",city:"上海",lat:31.1979,lng:121.3364},
+  {code:"PEK",name:"首都國際機場",city:"北京",lat:40.0799,lng:116.6031},
+  {code:"PKX",name:"大興國際機場",city:"北京",lat:39.5097,lng:116.4105},
+  {code:"CAN",name:"廣州白雲機場",city:"廣州",lat:23.3924,lng:113.2988},
+  {code:"SZX",name:"深圳寶安機場",city:"深圳",lat:22.6393,lng:113.8108},
+  {code:"BKK",name:"素萬那普機場",city:"曼谷",lat:13.6900,lng:100.7501},
+  {code:"DMK",name:"廊曼機場",city:"曼谷",lat:13.9126,lng:100.6067},
+  {code:"SIN",name:"樟宜機場",city:"新加坡",lat:1.3644,lng:103.9915},
+  {code:"KUL",name:"吉隆坡國際機場",city:"吉隆坡",lat:2.7456,lng:101.7072},
+  {code:"MNL",name:"馬尼拉國際機場",city:"馬尼拉",lat:14.5086,lng:121.0197},
+  {code:"CGK",name:"蘇加諾-哈達機場",city:"雅加達",lat:-6.1255,lng:106.6559},
+  {code:"SGN",name:"胡志明市機場",city:"胡志明市",lat:10.8188,lng:106.6520},
+  {code:"HAN",name:"河內內排機場",city:"河內",lat:21.2212,lng:105.8072},
+  {code:"RGN",name:"仰光國際機場",city:"仰光",lat:16.9073,lng:96.1332},
+  {code:"DEL",name:"英迪拉·甘地機場",city:"新德里",lat:28.5562,lng:77.1000},
+  {code:"BOM",name:"查特拉帕提·希瓦吉機場",city:"孟買",lat:19.0896,lng:72.8656},
+  {code:"DXB",name:"杜拜國際機場",city:"杜拜",lat:25.2532,lng:55.3657},
+  {code:"AUH",name:"阿布達比機場",city:"阿布達比",lat:24.4330,lng:54.6511},
+  {code:"DOH",name:"哈馬德國際機場",city:"多哈",lat:25.2731,lng:51.6086},
+  {code:"LHR",name:"希斯洛機場",city:"倫敦",lat:51.4700,lng:-0.4543},
+  {code:"CDG",name:"戴高樂機場",city:"巴黎",lat:49.0097,lng:2.5479},
+  {code:"FRA",name:"法蘭克福機場",city:"法蘭克福",lat:50.0379,lng:8.5622},
+  {code:"AMS",name:"阿姆斯特丹機場",city:"阿姆斯特丹",lat:52.3086,lng:4.7639},
+  {code:"FCO",name:"菲烏米奇諾機場",city:"羅馬",lat:41.8045,lng:12.2508},
+  {code:"ZRH",name:"蘇黎世機場",city:"蘇黎世",lat:47.4582,lng:8.5555},
+  {code:"VIE",name:"維也納機場",city:"維也納",lat:48.1102,lng:16.5697},
+  {code:"JFK",name:"甘迺迪機場",city:"紐約",lat:40.6413,lng:-73.7781},
+  {code:"LAX",name:"洛杉磯國際機場",city:"洛杉磯",lat:33.9425,lng:-118.4081},
+  {code:"SFO",name:"舊金山機場",city:"舊金山",lat:37.6213,lng:-122.3790},
+  {code:"ORD",name:"歐海爾機場",city:"芝加哥",lat:41.9742,lng:-87.9073},
+  {code:"YYZ",name:"皮爾遜機場",city:"多倫多",lat:43.6777,lng:-79.6248},
+  {code:"MEX",name:"墨西哥城機場",city:"墨西哥城",lat:19.4363,lng:-99.0721},
+  {code:"GRU",name:"瓜魯柳斯機場",city:"聖保羅",lat:-23.4356,lng:-46.4731},
+  {code:"EZE",name:"布宜諾斯艾利斯機場",city:"布宜諾斯艾利斯",lat:-34.8222,lng:-58.5358},
+  {code:"SYD",name:"金斯福德·史密斯機場",city:"雪梨",lat:-33.9399,lng:151.1753},
+  {code:"MEL",name:"墨爾本機場",city:"墨爾本",lat:-37.6690,lng:144.8410},
+  {code:"AKL",name:"奧克蘭機場",city:"奧克蘭",lat:-37.0082,lng:174.7850},
+  {code:"JNB",name:"O.R.坦博機場",city:"約翰尼斯堡",lat:-26.1367,lng:28.2411},
+  {code:"CAI",name:"開羅機場",city:"開羅",lat:30.1219,lng:31.4056},
+];
+
+function findAirport(code){return AIRPORTS.find(function(a){return a.code===code.toUpperCase();});}
+
+// ─── DATA ──────────────────────────────────────────────────────────────────
+var trips=[], selCat='機票';
+
+function save(){try{localStorage.setItem('fl2',JSON.stringify(trips));}catch(e){}}
+function load(){try{var r=localStorage.getItem('fl2');if(r)trips=JSON.parse(r);}catch(e){}}
+
+// ─── TABS ──────────────────────────────────────────────────────────────────
+function switchTab(t){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.ntab').forEach(function(b){b.classList.remove('active');});
+  document.getElementById('pg-'+t).classList.add('active');
+  document.getElementById('nav-'+t).classList.add('active');
+  if(t==='map'){renderMap();renderMapList();}
+  if(t==='trips'){renderTrips();}
+  if(t==='add'){populateExpTrips();}
+}
+function switchInner(t){
+  document.querySelectorAll('.itab').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.itab-panel').forEach(function(p){p.classList.remove('active');});
+  document.getElementById('panel-'+t).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if(t==='expense') populateExpTrips();
+}
+
+// ─── STATS ─────────────────────────────────────────────────────────────────
+function renderStats(){
+  var legs=trips.reduce(function(s,t){return s+(t.legs||[]).length;},0);
+  document.getElementById('stats').innerHTML=
+    '<span class="stat-chip">'+trips.length+' 行程</span>'+
+    '<span class="stat-chip">'+legs+' 航班</span>';
+}
+
+// ─── WORLD MAP (Canvas) ────────────────────────────────────────────────────
+var MAP_W=800,MAP_H=400;
+function lngToX(lng){return (lng+180)/360*MAP_W;}
+function latToY(lat){return (90-lat)/180*MAP_H;}
+
+function drawWorldOutline(ctx,w,h){
+  // Simple filled rectangles approximating continents
+  var sx=w/MAP_W, sy=h/MAP_H;
+  ctx.fillStyle='rgba(255,255,255,0.04)';
+  ctx.strokeStyle='rgba(255,255,255,0.08)';
+  ctx.lineWidth=0.5;
+
+  var shapes=[
+    // North America
+    [[50,-140],[70,-140],[70,-55],[30,-55],[25,-80],[30,-100],[40,-120]],
+    // South America
+    [[13,-80],[10,-60],[5,-50],[-55,-35],[-55,-65],[-20,-80]],
+    // Europe
+    [[35,-10],[70,-10],[70,40],[40,40],[36,28]],
+    // Africa
+    [[35,-15],[37,20],[37,50],[10,50],[-35,20],[-35,-20],[0,-20]],
+    // Asia
+    [[10,40],[75,40],[75,140],[55,140],[35,115],[10,100],[10,40]],
+    [[55,140],[70,140],[70,180],[55,180]],
+    // Australia
+    [[-10,110],[-10,155],[-40,155],[-40,110]],
+    [[-30,135],[-43,148],[-43,147],[-30,135]],
+  ];
+  shapes.forEach(function(pts){
+    ctx.beginPath();
+    pts.forEach(function(p,i){
+      var x=lngToX(p[1])*sx, y=latToY(p[0])*sy;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  });
+}
+
+function renderMap(){
+  var wrap=document.getElementById('map-wrap');
+  var w=wrap.clientWidth, h=Math.round(w*0.5);
+  var mc=document.getElementById('world-map');
+  var ac=document.getElementById('arc-layer');
+  mc.width=w; mc.height=h; ac.width=w; ac.height=h;
+  ac.style.width=w+'px'; ac.style.height=h+'px';
+  mc.style.height=h+'px';
+
+  var mctx=mc.getContext('2d');
+  mctx.clearRect(0,0,w,h);
+  mctx.fillStyle='#0b1120';
+  mctx.fillRect(0,0,w,h);
+  drawWorldOutline(mctx,w,h);
+
+  var actx=ac.getContext('2d');
+  actx.clearRect(0,0,w,h);
+
+  var cols=["#f97316","#3b82f6","#a855f7","#10b981","#f59e0b","#ec4899"];
+  var sx=w/MAP_W,sy=h/MAP_H;
+  var legend=[];
+
+  trips.forEach(function(trip,ti){
+    var col=cols[ti%cols.length];
+    legend.push({name:trip.name,col:col});
+    (trip.legs||[]).forEach(function(leg){
+      var fa=findAirport(leg.fromCode||''),ta=findAirport(leg.toCode||'');
+      if(!fa||!ta) return;
+      var x1=lngToX(fa.lng)*sx, y1=latToY(fa.lat)*sy;
+      var x2=lngToX(ta.lng)*sx, y2=latToY(ta.lat)*sy;
+      var mx=(x1+x2)/2, my=Math.min(y1,y2)-(Math.abs(x2-x1)*0.25+20);
+
+      // glow
+      actx.save();
+      actx.strokeStyle=col;
+      actx.lineWidth=3;
+      actx.shadowBlur=8;
+      actx.shadowColor=col;
+      actx.globalAlpha=0.6;
+      actx.beginPath();
+      actx.moveTo(x1,y1);
+      actx.quadraticCurveTo(mx,my,x2,y2);
+      actx.stroke();
+      actx.restore();
+
+      // dots
+      [x1,x2].forEach(function(px,pi){
+        var py=pi===0?y1:y2;
+        actx.beginPath();
+        actx.arc(px,py,4,0,Math.PI*2);
+        actx.fillStyle=col;
+        actx.shadowBlur=10;
+        actx.shadowColor=col;
+        actx.fill();
+      });
+    });
+  });
+
+  // Legend
+  var legEl=document.getElementById('map-legend');
+  legEl.innerHTML=legend.map(function(l){
+    return '<span style="color:'+l.col+';margin-right:10px">■ '+esc(l.name)+'</span>';
+  }).join('');
+  if(!legend.length) legEl.innerHTML='<span>尚無航班資料</span>';
+}
+
+// ─── MAP LIST ──────────────────────────────────────────────────────────────
+function renderMapList(){
+  var el=document.getElementById('trips-map-list');
+  if(!trips.length){
+    el.innerHTML='<div class="empty"><span class="empty-icon">✈️</span>尚無行程<br>點 ＋ 新增第一趟旅程</div>';
+    return;
+  }
+  var cols=["#f97316","#3b82f6","#a855f7","#10b981","#f59e0b","#ec4899"];
+  el.innerHTML=trips.map(function(t,i){
+    var col=cols[i%cols.length];
+    var total=totalExp(t);
+    return '<div class="trip-card" style="border-left:4px solid '+col+'">'+
+      '<div class="trip-header">'+
+        '<div><div class="trip-name">'+esc(t.name)+'</div>'+
+        (total?'<div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px;font-family:Space Mono,monospace">總支出：'+total+'</div>':'')+
+        '</div>'+
+      '</div>'+
+      (t.legs||[]).map(function(l){
+        return '<div class="leg-row">'+
+          '<span>✈</span>'+
+          '<span class="leg-route">'+esc(l.fromCode||l.from)+' → '+esc(l.toCode||l.to)+'</span>'+
+          (l.fn?'<span class="leg-fn">'+esc(l.fn)+'</span>':'')+
+          (l.date?'<span style="color:var(--muted);font-size:11px;margin-left:auto">'+esc(l.date)+'</span>':'')+
+        '</div>';
+      }).join('')+
+    '</div>';
+  }).join('');
+}
+
+// ─── TRIPS PAGE ────────────────────────────────────────────────────────────
+function renderTrips(){
+  var el=document.getElementById('trips-list');
+  if(!trips.length){
+    el.innerHTML='<div class="empty"><span class="empty-icon">📋</span>尚無行程</div>';
+    return;
+  }
+  var cols=["#f97316","#3b82f6","#a855f7","#10b981","#f59e0b","#ec4899"];
+  var classMap={Economy:'🟢',Premium Economy:'🔵',Business:'🟠',First:'🟣'};
+  el.innerHTML=trips.map(function(t,i){
+    var col=cols[i%cols.length];
+    var total=totalExp(t);
+    return '<div class="trip-card" style="border-left:4px solid '+col+'">'+
+      '<div class="trip-header">'+
+        '<div><div class="trip-name">'+esc(t.name)+'</div>'+
+        (total?'<div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px;font-family:Space Mono,monospace">💰 '+total+'</div>':'')+
+        '</div>'+
+        '<div class="trip-actions">'+
+          '<button class="btn btn-outline btn-sm" onclick="exportPDF('+i+')">PDF</button>'+
+          '<button class="btn btn-sm" style="background:rgba(239,68,68,0.2);color:rgba(239,68,68,0.8);border:1px solid rgba(239,68,68,0.3)" onclick="delTrip('+i+')">刪除</button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="sec-title" style="padding:8px 0 4px;font-size:10px">航班</div>'+
+      (t.legs||[]).map(function(l){
+        return '<div class="leg-row">'+
+          '<span>'+(classMap[l.cls]||'✈')+'</span>'+
+          '<div>'+
+            '<div class="leg-route">'+esc(l.fromCode||l.from)+' → '+esc(l.toCode||l.to)+'</div>'+
+            '<div style="font-size:11px;color:var(--muted);margin-top:2px">'+
+              (l.fn?'<span class="leg-fn">'+esc(l.fn)+'</span>':'')+
+              (l.cls?' '+esc(l.cls):'')+(l.date?' · '+esc(l.date):'')+
+            '</div>'+
+          '</div>'+
+        '</div>';
+      }).join('')+
+      ((t.expenses||[]).length?
+        '<div class="sec-title" style="padding:8px 0 4px;font-size:10px">開支</div>'+
+        (t.expenses||[]).map(function(e,ei){
+          return '<div class="expense-row">'+
+            '<span class="expense-cat">'+esc(e.cat)+' '+(e.note?'· '+esc(e.note):'')+'</span>'+
+            '<span class="expense-amt">'+esc(e.currency)+' '+Number(e.amount).toLocaleString()+'</span>'+
+          '</div>';
+        }).join('')+
+        '<div class="trip-total">合計 '+total+'</div>'
+      :'')+
+    '</div>';
+  }).join('');
+}
+
+function totalExp(t){
+  if(!(t.expenses||[]).length) return '';
+  var byCur={};
+  (t.expenses||[]).forEach(function(e){
+    byCur[e.currency]=(byCur[e.currency]||0)+Number(e.amount);
+  });
+  return Object.keys(byCur).map(function(c){return c+' '+byCur[c].toLocaleString();}).join(' / ');
+}
+
+function delTrip(i){
+  if(!confirm('確定刪除此行程？')) return;
+  trips.splice(i,1);
+  save();renderStats();renderTrips();renderMap();renderMapList();
+}
+
+// ─── AIRPORT SEARCH ────────────────────────────────────────────────────────
+var aptMeta={};  // store full airport per field
+
+function searchApt(input,dropId){
+  var q=input.value.trim().toUpperCase();
+  var drop=document.getElementById(dropId);
+  var res=q?AIRPORTS.filter(function(a){
+    return a.code.indexOf(q)>-1||a.city.indexOf(input.value.trim())>-1||a.name.indexOf(input.value.trim())>-1;
+  }).slice(0,8):AIRPORTS.slice(0,8);
+
+  if(!res.length){drop.style.display='none';return;}
+  drop.innerHTML=res.map(function(a){
+    return '<div class="apt-item" data-code="'+a.code+'" data-name="'+a.name+'" data-city="'+a.city+'" data-field="'+input.id+'">'+
+      '<div class="apt-code">'+a.code+'</div>'+
+      '<div class="apt-name">'+a.city+' · '+a.name+'</div>'+
+    '</div>';
+  }).join('');
+  drop.style.display='block';
+
+  drop.querySelectorAll('.apt-item').forEach(function(item){
+    item.addEventListener('mousedown',function(e){
+      e.preventDefault();
+      var code=this.getAttribute('data-code');
+      var city=this.getAttribute('data-city');
+      var fieldId=this.getAttribute('data-field');
+      document.getElementById(fieldId).value=code+' '+city;
+      aptMeta[fieldId]=AIRPORTS.find(function(a){return a.code===code;});
+      drop.style.display='none';
+    });
+  });
+}
+document.addEventListener('click',function(e){
+  document.querySelectorAll('.apt-dropdown').forEach(function(d){d.style.display='none';});
+});
+
+// ─── CATEGORY SELECT ───────────────────────────────────────────────────────
+document.getElementById('cat-grid').addEventListener('click',function(e){
+  var btn=e.target.closest('.cat-btn');
+  if(!btn) return;
+  document.querySelectorAll('.cat-btn').forEach(function(b){b.classList.remove('selected');});
+  btn.classList.add('selected');
+  selCat=btn.getAttribute('data-cat');
+});
+
+// ─── SAVE FLIGHT ───────────────────────────────────────────────────────────
+document.getElementById('btn-save').addEventListener('click',function(){
+  var name=document.getElementById('inp-name').value.trim();
+  var fromVal=document.getElementById('inp-from').value.trim();
+  var toVal=document.getElementById('inp-to').value.trim();
+  var date=document.getElementById('inp-date').value;
+  var fn=document.getElementById('inp-fn').value.trim();
+  var cls=document.getElementById('inp-class').value;
+  if(!name){showToast('⚠️ 請輸入行程名稱');return;}
+  if(!fromVal||!toVal){showToast('⚠️ 請輸入出發地和目的地');return;}
+
+  var fromApt=aptMeta['inp-from']||null;
+  var toApt=aptMeta['inp-to']||null;
+  var fromCode=fromApt?fromApt.code:fromVal.split(' ')[0];
+  var toCode=toApt?toApt.code:toVal.split(' ')[0];
+
+  // find existing trip by name or create
+  var idx=trips.findIndex(function(t){return t.name===name;});
+  if(idx===-1){trips.push({name:name,legs:[],expenses:[]});idx=trips.length-1;}
+  trips[idx].legs.push({from:fromVal,to:toVal,fromCode:fromCode,toCode:toCode,date:date,fn:fn,cls:cls});
+  save();renderStats();
+  ['inp-name','inp-from','inp-to','inp-date','inp-fn'].forEach(function(id){document.getElementById(id).value='';});
+  aptMeta={};
+  switchTab('map');
+  showToast('✈ 航班已儲存！');
+});
+
+// ─── EXPENSE ───────────────────────────────────────────────────────────────
+function populateExpTrips(){
+  var sel=document.getElementById('exp-trip');
+  sel.innerHTML=trips.length
+    ?trips.map(function(t,i){return '<option value="'+i+'">'+esc(t.name)+'</option>';}).join('')
+    :'<option value="">-- 請先新增行程 --</option>';
+}
+
+document.getElementById('btn-exp').addEventListener('click',function(){
+  var ti=parseInt(document.getElementById('exp-trip').value);
+  var amount=parseFloat(document.getElementById('exp-amount').value);
+  var currency=document.getElementById('exp-currency').value;
+  var note=document.getElementById('exp-note').value.trim();
+  if(isNaN(ti)||!trips[ti]){showToast('⚠️ 請選擇行程');return;}
+  if(!amount||amount<=0){showToast('⚠️ 請輸入金額');return;}
+  if(!trips[ti].expenses) trips[ti].expenses=[];
+  trips[ti].expenses.push({cat:selCat,amount:amount,currency:currency,note:note,date:new Date().toISOString().slice(0,10)});
+  save();
+  document.getElementById('exp-amount').value='';
+  document.getElementById('exp-note').value='';
+  showToast('💰 開支已記錄！');
+});
+
+// ─── PDF EXPORT ────────────────────────────────────────────────────────────
+function exportPDF(idx){
+  var t=trips[idx];
+  var {jsPDF}=window.jspdf;
+  var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+
+  var W=210,margin=16,y=20;
+  // Header bar
+  doc.setFillColor(249,115,22);
+  doc.rect(0,0,W,14,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(11);
+  doc.setFont('helvetica','bold');
+  doc.text('FLIGHT LOG  ✈  TRAVEL REPORT',margin,9);
+
+  // Trip name
+  y=28;
+  doc.setTextColor(30,30,40);
+  doc.setFontSize(18);
+  doc.setFont('helvetica','bold');
+  doc.text(t.name,margin,y);
+
+  // Date line
+  y+=8;
+  doc.setFontSize(9);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(120,120,140);
+  doc.text('Generated: '+new Date().toLocaleDateString('zh-TW'),margin,y);
+
+  // Divider
+  y+=6;
+  doc.setDrawColor(230,230,240);
+  doc.setLineWidth(0.5);
+  doc.line(margin,y,W-margin,y);
+
+  // Flights section
+  y+=10;
+  doc.setFontSize(11);
+  doc.setFont('helvetica','bold');
+  doc.setTextColor(249,115,22);
+  doc.text('FLIGHTS',margin,y);
+
+  y+=8;
+  doc.setFontSize(10);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(40,40,60);
+
+  (t.legs||[]).forEach(function(l,i){
+    if(y>270){doc.addPage();y=20;}
+    // Row bg
+    doc.setFillColor(248,249,252);
+    doc.roundedRect(margin,y-5,W-margin*2,14,2,2,'F');
+    doc.setFont('helvetica','bold');
+    doc.text((l.fromCode||l.from)+' → '+(l.toCode||l.to), margin+4, y+3);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(100,100,120);
+    var info=[l.fn,l.cls,l.date].filter(Boolean).join('  |  ');
+    doc.text(info, margin+4, y+9);
+    doc.setTextColor(40,40,60);
+    y+=18;
+  });
+
+  // Expenses section
+  if((t.expenses||[]).length){
+    y+=4;
+    if(y>260){doc.addPage();y=20;}
+    doc.setFontSize(11);
+    doc.setFont('helvetica','bold');
+    doc.setTextColor(249,115,22);
+    doc.text('EXPENSES',margin,y);
+    y+=8;
+
+    var byCur={};
+    (t.expenses||[]).forEach(function(e){
+      if(y>270){doc.addPage();y=20;}
+      doc.setFillColor(248,249,252);
+      doc.roundedRect(margin,y-5,W-margin*2,12,2,2,'F');
+      doc.setFont('helvetica','normal');
+      doc.setTextColor(40,40,60);
+      doc.setFontSize(10);
+      var label=e.cat+(e.note?' — '+e.note:'');
+      doc.text(label,margin+4,y+2);
+      var amtStr=e.currency+' '+Number(e.amount).toLocaleString();
+      doc.setFont('helvetica','bold');
+      doc.setTextColor(16,185,129);
+      doc.text(amtStr,W-margin-4,y+2,{align:'right'});
+      byCur[e.currency]=(byCur[e.currency]||0)+Number(e.amount);
+      y+=14;
+    });
+
+    // Total
+    y+=2;
+    doc.setDrawColor(230,230,240);
+    doc.line(margin,y,W-margin,y);
+    y+=8;
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(11);
+    doc.setTextColor(40,40,60);
+    doc.text('Total:',margin+4,y);
+    var totStr=Object.keys(byCur).map(function(c){return c+' '+byCur[c].toLocaleString();}).join('  /  ');
+    doc.setTextColor(249,115,22);
+    doc.text(totStr,W-margin-4,y,{align:'right'});
+  }
+
+  // Footer
+  doc.setFontSize(8);
+  doc.setTextColor(180,180,200);
+  doc.text('✈ FLIGHT LOG — Exported '+new Date().toLocaleString('zh-TW'),margin,290);
+
+  doc.save(t.name.replace(/\s+/g,'_')+'_report.pdf');
+  showToast('📄 PDF 已匯出！');
+}
+
+// ─── TOAST ─────────────────────────────────────────────────────────────────
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},2400);
+}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ─── NAV BINDINGS ──────────────────────────────────────────────────────────
+document.getElementById('nav-map').addEventListener('click',function(){switchTab('map');});
+document.getElementById('nav-trips').addEventListener('click',function(){switchTab('trips');});
+document.getElementById('nav-add').addEventListener('click',function(){switchTab('add');});
+
+// ─── INIT ──────────────────────────────────────────────────────────────────
+load();renderStats();renderMap();renderMapList();
+</script>
+
+</body>
+</html>
